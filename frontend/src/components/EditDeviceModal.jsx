@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { updateDevice } from '../services/deviceService';
+import TimezoneSelect from './TimezoneSelect';
 
 export default function EditDeviceModal({ device, open, onClose, onSaved }) {
   const [childName, setChildName] = useState('');
@@ -10,7 +11,7 @@ export default function EditDeviceModal({ device, open, onClose, onSaved }) {
   useEffect(() => {
     if (!device || !open) return;
     setChildName(device.child_name || '');
-    setTimezone(device.timezone || '');
+    setTimezone((device.timezone && String(device.timezone).trim()) || 'Asia/Ho_Chi_Minh');
     setError('');
   }, [device, open]);
 
@@ -32,9 +33,9 @@ export default function EditDeviceModal({ device, open, onClose, onSaved }) {
       setError("Child's name is required.");
       return;
     }
-    const tz = timezone.trim();
+    const tz = String(timezone).trim();
     if (!tz) {
-      setError('Timezone is required.');
+      setError('Please choose a timezone.');
       return;
     }
 
@@ -84,21 +85,28 @@ export default function EditDeviceModal({ device, open, onClose, onSaved }) {
             />
           </div>
           <div className="field">
-            <label htmlFor="edit-timezone">Timezone (IANA)</label>
-            <input
+            <label htmlFor="edit-timezone">Timezone</label>
+            <TimezoneSelect
               id="edit-timezone"
               value={timezone}
               onChange={(e) => setTimezone(e.target.value)}
               required
               disabled={loading}
+              aria-label="Time zone"
             />
+            <p className="card-note">Choose the IANA region used for times on this device.</p>
           </div>
           <p className="device-modal-uuid">UUID: {device.device_id}</p>
           <div className="device-modal-actions">
-            <button type="button" className="btn btn-ghost" onClick={onClose} disabled={loading}>
+            <button
+              type="button"
+              className="btn btn-ghost device-modal-btn"
+              onClick={onClose}
+              disabled={loading}
+            >
               Cancel
             </button>
-            <button type="submit" className="btn btn-brand" disabled={loading}>
+            <button type="submit" className="btn btn-brand device-modal-btn" disabled={loading}>
               {loading ? 'Saving…' : 'Save changes'}
             </button>
           </div>

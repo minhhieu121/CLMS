@@ -73,6 +73,7 @@ const AlertModel = {
         FROM alert_logs a
         JOIN devices d ON a.device_id = d.device_id
         WHERE d.user_id = ${user_id}
+          AND d.status != 'INACTIVE'
           AND a.created_at < ${cursor}
         ORDER BY a.created_at DESC
         LIMIT ${limit};
@@ -83,6 +84,7 @@ const AlertModel = {
         FROM alert_logs a
         JOIN devices d ON a.device_id = d.device_id
         WHERE d.user_id = ${user_id}
+          AND d.status != 'INACTIVE'
         ORDER BY a.created_at DESC
         LIMIT ${limit};
       `;

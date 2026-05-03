@@ -37,6 +37,15 @@ module.exports = (io) => {
             console.error("Failed to process local event:", error);
         }
     });
+    LocalMegaphone.on('BATTERY_LOW', (event) => {
+        try {
+            const roomName = `room_device_${event.device_id}`;
+            event.timestamp = DateTime.fromJSDate(event.timestamp).setZone( event.timezone).toLocaleString(DateTime.DATETIME_MED);
+            io.to(roomName).emit('alert_device_battery_low', event);
+        } catch (error) {
+            console.error("Failed to process local event:", error);
+        }
+    });
     LocalMegaphone.on('OUT_OF_SIGNAL', async (event) => {
         try {
             const roomName = `room_device_${event.device_id}`;

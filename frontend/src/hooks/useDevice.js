@@ -17,13 +17,16 @@ export default function useDevices(userId) {
     try {
       setLoading(true);
       const deviceList = await getMyDevices();
-      setDevices(deviceList);
+      const activeOnly = Array.isArray(deviceList)
+        ? deviceList.filter((d) => d.status !== 'INACTIVE')
+        : [];
+      setDevices(activeOnly);
       setSelectedDevice((prev) => {
-        if (!prev) return deviceList[0] ?? null;
-        const still = deviceList.find((d) => d.device_id === prev.device_id);
-        return still ?? deviceList[0] ?? null;
+        if (!prev) return activeOnly[0] ?? null;
+        const still = activeOnly.find((d) => d.device_id === prev.device_id);
+        return still ?? activeOnly[0] ?? null;
       });
-      return deviceList;
+      return activeOnly;
     } catch (err) {
       console.error('Fetch devices error:', err);
       setDevices([]);

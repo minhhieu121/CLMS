@@ -8,6 +8,9 @@ import { toast } from 'sonner';
  */
 export default function ParentRealtimeToasts({ devices = [] }) {
   const outToastByDeviceRef = useRef(new Map());
+  const devicesRef = useRef(devices);
+  devicesRef.current = devices;
+
   const deviceKey = useMemo(
     () =>
       devices
@@ -25,6 +28,7 @@ export default function ParentRealtimeToasts({ devices = [] }) {
     const socket = io(apiBase, { withCredentials: true, transports: ['polling', 'websocket'] });
 
     const onEnter = (data) => {
+      if (!devicesRef.current.some((d) => d.device_id === data.device_id)) return;
       const tid = outToastByDeviceRef.current.get(data.device_id);
       if (tid) {
         toast.dismiss(tid);
@@ -36,14 +40,21 @@ export default function ParentRealtimeToasts({ devices = [] }) {
     };
 
     const onExit = (data) => {
+      if (!devicesRef.current.some((d) => d.device_id === data.device_id)) return;
       const id = toast.error('Left safe zone', {
         description: `${data.child_name || 'Child'} left ${data.zone_name || 'the zone'}`,
         duration: Infinity,
       });
       outToastByDeviceRef.current.set(data.device_id, id);
     };
+    const onBatteryLow = (data) => {
+      toast.warning('Low battery', {
+        description: `${child}'s battery is ${data.battery_level}%`, 
+      });
+    };
 
     const onSignal = (data) => {
+      if (!devicesRef.current.some((d) => d.device_id === data.device_id)) return;
       toast.warning('Signal lost', {
         description: `Lost connection to ${data.child_name || 'Child'}'s device.`,
       });
@@ -52,6 +63,7 @@ export default function ParentRealtimeToasts({ devices = [] }) {
     socket.on('alert_device_enter_of_zone', onEnter);
     socket.on('alert_device_out_of_zone', onExit);
     socket.on('alert_device_out_of_signal', onSignal);
+    socket.on('alert_device_battery_low', onBatteryLow);
 
     return () => {
       outToastByDeviceRef.current.forEach((tid) => toast.dismiss(tid));

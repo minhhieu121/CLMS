@@ -198,6 +198,29 @@ body {
   background: #fff;
 }
 
+.field select,
+.timezone-select {
+  width: 100%;
+  max-width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 0.8rem;
+  height: 2.85rem;
+  padding: 0 0.85rem;
+  font: inherit;
+  color: var(--ink-900);
+  background: #fbfefc;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.field select:focus,
+.timezone-select:focus {
+  outline: none;
+  border-color: var(--brand-500);
+  box-shadow: 0 0 0 3px rgba(0, 177, 79, 0.14);
+  background: #fff;
+}
+
 .inline-two {
   display: grid;
   gap: 0.75rem;
@@ -1290,24 +1313,6 @@ body {
   align-items: center;
 }
 
-.device-list__item--inactive {
-  opacity: 0.72;
-  border-style: dashed;
-}
-
-.device-status-badge {
-  display: inline-block;
-  margin-top: 0.35rem;
-  padding: 0.2rem 0.45rem;
-  border-radius: 999px;
-  font-size: 0.68rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  background: rgba(107, 114, 128, 0.18);
-  color: var(--ink-600);
-}
-
 .device-modal-backdrop {
   position: fixed;
   inset: 0;
@@ -1339,10 +1344,20 @@ body {
 
 .device-modal-actions {
   display: flex;
-  gap: 0.65rem;
+  gap: 0.85rem;
   justify-content: flex-end;
+  align-items: center;
   flex-wrap: wrap;
-  margin-top: 0.25rem;
+  margin-top: 1rem;
+  padding-top: 0.5rem;
+}
+
+.device-modal-btn {
+  min-width: 7.75rem;
+  padding-left: 1.35rem;
+  padding-right: 1.35rem;
+  height: auto;
+  min-height: 2.85rem;
 }
 
 .device-modal-uuid {
