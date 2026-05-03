@@ -844,6 +844,8 @@ body {
   background: rgba(255, 255, 255, 0.14);
   color: #f5fff8;
   border-color: rgba(255, 255, 255, 0.16);
+  padding-left: 1.35rem;
+  padding-right: 1.35rem;
 }
 
 .dashboard-hero {
@@ -1266,6 +1268,89 @@ body {
   word-break: break-all;
   color: var(--ink-700);
   line-height: 1.4;
+}
+
+.device-list__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.device-list__main {
+  flex: 1;
+  min-width: 0;
+}
+
+.device-list__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  align-items: center;
+}
+
+.device-list__item--inactive {
+  opacity: 0.72;
+  border-style: dashed;
+}
+
+.device-status-badge {
+  display: inline-block;
+  margin-top: 0.35rem;
+  padding: 0.2rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: rgba(107, 114, 128, 0.18);
+  color: var(--ink-600);
+}
+
+.device-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.device-modal-card {
+  max-width: 28rem;
+  width: 100%;
+  margin: 0;
+}
+
+.device-modal-title {
+  margin: 0.35rem 0 0;
+  font-size: 1.15rem;
+}
+
+.device-modal-note {
+  margin: 0.5rem 0 1rem;
+  font-size: 0.88rem;
+  color: var(--ink-600);
+  line-height: 1.5;
+}
+
+.device-modal-actions {
+  display: flex;
+  gap: 0.65rem;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  margin-top: 0.25rem;
+}
+
+.device-modal-uuid {
+  margin: 0;
+  font-family: ui-monospace, monospace;
+  font-size: 0.78rem;
+  word-break: break-all;
+  color: var(--ink-600);
 }
 
 .alert-table-wrap {

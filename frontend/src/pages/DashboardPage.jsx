@@ -6,7 +6,9 @@ import { getAllUserAlerts } from '../services/alertService';
 import { getLogsByDevice } from '../services/logService';
 import Map from '../components/Map';
 import AddDeviceForm from '../components/AddDeviceForm';
+import EditDeviceModal from '../components/EditDeviceModal';
 import ParentRealtimeToasts from '../components/ParentRealtimeToasts';
+import { removeDevice } from '../services/deviceService';
 
 const TAB_KEYS = ['profile', 'devices', 'map', 'boundary', 'alerts', 'logs'];
 
@@ -56,6 +58,13 @@ export default function DashboardPage() {
   const [logsList, setLogsList] = useState([]);
   const [logsCursor, setLogsCursor] = useState(null);
   const [logsLoading, setLogsLoading] = useState(false);
+  const [editingDevice, setEditingDevice] = useState(null);
+
+  const activeDevices = useMemo(
+    () => devices.filter((d) => d.status !== 'INACTIVE'),
+    [devices]
+  );
+
   useEffect(() => {
     setProfileForm({
       fname: user?.fname || '',
@@ -290,10 +299,27 @@ export default function DashboardPage() {
     }
   }
 
+  async function handleRemoveDevice(d) {
+    const ok = window.confirm(
+      `Remove "${d.child_name}" from your account? The device will no longer appear for live map, zones, or new alerts. This action cannot be undone in the app.`
+    );
+    if (!ok) return;
+    try {
+      await removeDevice(d.device_id);
+      toast.success('Device removed');
+      setEditingDevice((cur) => (cur?.device_id === d.device_id ? null : cur));
+      if (viewTarget?.device_id === d.device_id) setViewTarget(null);
+      if (configTarget?.device_id === d.device_id) setConfigTarget(null);
+      await refetchDevices();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Could not remove device');
+    }
+  }
+
   return (
     <main className="dashboard-page">
       <Toaster richColors position="top-right" closeButton />
-      <ParentRealtimeToasts devices={devices} />
+      <ParentRealtimeToasts devices={activeDevices} />
       <section className="dashboard-shell">
         <header className="dashboard-header">
           <div className="dashboard-brand-row">
@@ -452,22 +478,55 @@ export default function DashboardPage() {
                   <p className="empty-hint">No devices yet. Add a child above and paste the UUID into Traccar.</p>
                 ) : (
                   <ul className="device-list">
-                    {devices.map((d) => (
-                      <li key={d.device_id} className="device-list__item">
-                        <div className="device-list__name">{d.child_name}</div>
-                        <div className="device-list__id">{d.device_id}</div>
-                        <button
-                          type="button"
-                          className="btn btn-ghost btn-compact"
-                          onClick={() => {
-                            navigator.clipboard.writeText(d.device_id);
-                            toast.success('Device ID copied');
-                          }}
+                    {devices.map((d) => {
+                      const isInactive = d.status === 'INACTIVE';
+                      return (
+                        <li
+                          key={d.device_id}
+                          className={`device-list__item ${isInactive ? 'device-list__item--inactive' : ''}`}
                         >
-                          Copy UUID
-                        </button>
-                      </li>
-                    ))}
+                          <div className="device-list__row">
+                            <div className="device-list__main">
+                              <div className="device-list__name">{d.child_name}</div>
+                              {isInactive ? (
+                                <span className="device-status-badge">Removed</span>
+                              ) : null}
+                              <div className="device-list__id">{d.device_id}</div>
+                            </div>
+                            <div className="device-list__actions">
+                              <button
+                                type="button"
+                                className="btn btn-ghost btn-compact"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(d.device_id);
+                                  toast.success('Device ID copied');
+                                }}
+                              >
+                                Copy UUID
+                              </button>
+                              {!isInactive ? (
+                                <>
+                                  <button
+                                    type="button"
+                                    className="btn btn-ghost btn-compact"
+                                    onClick={() => setEditingDevice(d)}
+                                  >
+                                    Edit
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="btn btn-ghost btn-compact"
+                                    onClick={() => handleRemoveDevice(d)}
+                                  >
+                                    Remove
+                                  </button>
+                                </>
+                              ) : null}
+                            </div>
+                          </div>
+                        </li>
+                      );
+                    })}
                   </ul>
                 )}
               </article>
@@ -483,11 +542,11 @@ export default function DashboardPage() {
                   </div>
                   {loading ? (
                     <p className="empty-hint">Loading devices…</p>
-                  ) : devices.length === 0 ? (
+                  ) : activeDevices.length === 0 ? (
                     <p className="empty-hint">Add a device in the Devices tab first.</p>
                   ) : (
                     <div className="picker-grid">
-                      {devices.map((device) => (
+                      {activeDevices.map((device) => (
                         <button
                           key={device.device_id}
                           type="button"
@@ -592,7 +651,7 @@ export default function DashboardPage() {
                   required
                 >
                   <option value="">Select device</option>
-                  {devices.map((d) => (
+                  {activeDevices.map((d) => (
                     <option key={d.device_id} value={d.device_id}>
                       {d.child_name}
                     </option>
@@ -754,11 +813,11 @@ export default function DashboardPage() {
                   </div>
                   {loading ? (
                     <p className="empty-hint">Loading devices…</p>
-                  ) : devices.length === 0 ? (
+                  ) : activeDevices.length === 0 ? (
                     <p className="empty-hint">Register a device first, then come back here.</p>
                   ) : (
                     <div className="picker-grid">
-                      {devices.map((device) => (
+                      {activeDevices.map((device) => (
                         <button
                           key={device.device_id}
                           type="button"
@@ -803,6 +862,24 @@ export default function DashboardPage() {
           )}
         </section>
       </section>
+
+      <EditDeviceModal
+        device={editingDevice}
+        open={Boolean(editingDevice)}
+        onClose={() => setEditingDevice(null)}
+        onSaved={async () => {
+          const list = await refetchDevices();
+          toast.success('Device updated');
+          if (Array.isArray(list) && viewTarget) {
+            const u = list.find((x) => x.device_id === viewTarget.device_id);
+            if (u) setViewTarget(u);
+          }
+          if (Array.isArray(list) && configTarget) {
+            const u = list.find((x) => x.device_id === configTarget.device_id);
+            if (u) setConfigTarget(u);
+          }
+        }}
+      />
     </main>
   );
 }

@@ -116,6 +116,7 @@ class Device {
             UPDATE devices
             SET ${sql(updates)}
             WHERE device_id = ${deviceId}::uuid AND user_id = ${userId}
+            AND status != 'INACTIVE'
             RETURNING *;
         `;
         return result || null;
