@@ -75,7 +75,7 @@ export default function AddDeviceForm({ onSuccess }) {
   return (
     <div className="add-device-form">
       <p className="add-device-form__hint">
-        The server can generate a device ID for you, or paste a UUID to match Traccar Client.
+        The server generates a device ID for you.
       </p>
 
       {status.success && (
