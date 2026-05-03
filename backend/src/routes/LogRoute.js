@@ -14,6 +14,6 @@ router.get(
     validateDeviceId,
     LogController.getLatestLogbyDevice
 );
-router.get('/history/:device_id', authMiddleware, validateDeviceId, LogController.getLogsbyDevice);
+router.get('/history/:device_id', authMiddleware, validateDeviceId, LogController.getLogsByDevice);
 
 module.exports = router;

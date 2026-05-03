@@ -40,29 +40,25 @@ class Log {
 
         return result;
     }
-    static async getLogsByDevice(device_id, limit = 20, cursor = null) {
-        let query;
+    static async getLogsByDevice(
+        device_id,
+        from = null,
+        to = null,
+        limit = 100,
+        cursor = null
+    ) {
+        const parsedLimit = Number(limit) || 100;
+        const results = await sql`
+            SELECT *
+            FROM device_logs
+            WHERE device_id = ${device_id}
+            ${from ? sql`AND timestamp >= ${from}::timestamptz` : sql``}
+            ${to ? sql`AND timestamp <= ${to}::timestamptz` : sql``}
+            ${cursor ? sql`AND timestamp < ${cursor}::timestamptz` : sql``}
+            ORDER BY timestamp ASC
+            LIMIT ${parsedLimit}
+        `;
 
-        if (cursor) {
-            query = sql`
-                SELECT *
-                FROM device_logs
-                WHERE device_id = ${device_id}
-                AND timestamp < ${cursor}
-                ORDER BY timestamp DESC
-                LIMIT ${limit}
-            `;
-        } else {
-            query = sql`
-                SELECT *
-                FROM device_logs
-                WHERE device_id = ${device_id}
-                ORDER BY timestamp DESC
-                LIMIT ${limit}
-            `;
-        }
-
-        const results = await query;
         return results;
     }
 

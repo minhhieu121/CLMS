@@ -34,10 +34,10 @@ const AlertModel = {
     return rows[0];
   },
 
-  async getLatestByDevicewithTimestamp(device_id, timestamp) {
+  async getLatestByDevicewithBatteryLow(device_id, timestamp) {
     const rows = await sql`
       SELECT * FROM alert_logs
-      WHERE device_id = ${device_id} and timestamp <= ${timestamp}
+      WHERE device_id = ${device_id} and timestamp <= ${timestamp} and alert_type = 'BATTERY_LOW'
       ORDER BY timestamp DESC
       LIMIT 1;
     `;

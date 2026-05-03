@@ -11,7 +11,7 @@ export default function useDevices(userId) {
       setDevices([]);
       setSelectedDevice(null);
       setLoading(false);
-      return;
+      return [];
     }
 
     try {
@@ -23,10 +23,12 @@ export default function useDevices(userId) {
         const still = deviceList.find((d) => d.device_id === prev.device_id);
         return still ?? deviceList[0] ?? null;
       });
+      return deviceList;
     } catch (err) {
       console.error('Fetch devices error:', err);
       setDevices([]);
       setSelectedDevice(null);
+      return [];
     } finally {
       setLoading(false);
     }

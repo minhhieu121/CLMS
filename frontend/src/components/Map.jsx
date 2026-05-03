@@ -203,11 +203,8 @@ export default function Map({ deviceId, childName, mode, initialPosition }) {
         }
     }, [deviceId]);
 
-    useEffect(() => {
-        if (initialPosition) {
-            setPosition(initialPosition);
-        }
-    }, [initialPosition]);
+    // Do not sync initialPosition on every parent render: that overwrites live socket coords with stale list data.
+    // Dashboard remounts this component with a fresh key when picking a child after refetching devices.
 
     useEffect(() => {
         loadZones();

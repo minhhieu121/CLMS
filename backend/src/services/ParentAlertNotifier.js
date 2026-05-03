@@ -115,5 +115,12 @@ LocalMegaphone.on('OUT_OF_SIGNAL', (event) => {
     console.error('[ParentAlertNotifier] OUT_OF_SIGNAL handler:', e)
   );
 });
+LocalMegaphone.on('BATTERY_LOW', (event) => {
+  const uid = event.user_id;
+  if (!uid) return;
+  notifyParentChannels(uid, 'BATTERY_LOW', event).catch((e) =>
+    console.error('[ParentAlertNotifier] BATTERY_LOW handler:', e)
+  );
+});
 
 module.exports = {};

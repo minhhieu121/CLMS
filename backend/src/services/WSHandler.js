@@ -40,13 +40,21 @@ module.exports = (io) => {
     LocalMegaphone.on('OUT_OF_SIGNAL', async (event) => {
         try {
             const roomName = `room_device_${event.device_id}`;
+            const tz = event.timezone && String(event.timezone).trim() ? event.timezone : 'UTC';
             const t = event.updated_at ?? event.timestamp;
-            if (t) {
-                event.updated_at = DateTime.fromJSDate(t instanceof Date ? t : new Date(t)).setZone( event.timezone).toLocaleString(DateTime.DATETIME_MED);
+            if (t != null && t !== '') {
+                try {
+                    const dt = t instanceof Date ? t : new Date(t);
+                    if (!Number.isNaN(dt.getTime())) {
+                        event.updated_at = DateTime.fromJSDate(dt).setZone(tz).toLocaleString(DateTime.DATETIME_MED);
+                    }
+                } catch (e) {
+                    console.warn('[WS] OUT_OF_SIGNAL time format skipped:', e.message);
+                }
             }
             io.to(roomName).emit('alert_device_out_of_signal', event);
         } catch (error) {
-            console.error("Failed to process local event:", error);
+            console.error("Failed to process OUT_OF_SIGNAL:", error);
         }
     });
 

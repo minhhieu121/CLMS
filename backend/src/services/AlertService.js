@@ -16,6 +16,7 @@ const formatAlertDates = (alert, timezone) => {
     return alert;
 };
 
+const DUPLICATE_AFTER_LAST_MS_BATTERY = 2 * 60 * 1000;
 
 const AlertService = {
     processAlert: async (data, type_alert) => {   
@@ -28,6 +29,20 @@ const AlertService = {
             // One transition ACTIVE→NOSIGNAL per cron flip; dedup is at DB/cron level.
         }
         //After alert service done analyse then can emit to WS with new LOG, old alrt do not WS
+
+        //For battery_low, get the latest battery low log. 
+        if (type_alert == "BATTERY_LOW"){
+            const latestAlert = await AlertModel.getLatestByDevicewithBatteryLow(data.device_id, data.timestamp);
+            
+            const logTs = data.timestamp.getTime();
+            const lastAlertMs = latestAlert?.timestamp
+                ? new Date(latestAlert.timestamp).getTime()
+                : null;
+
+            if (latestAlert && (logTs - lastAlertMs) < DUPLICATE_AFTER_LAST_MS_BATTERY) {
+                return;
+            }
+        }
 
         const newAlert = await AlertModel.createAlert(data, type_alert);
         if (!newAlert){
@@ -147,6 +162,13 @@ const AlertService = {
 LocalMegaphone.on('DEVICE_ALERT', async (event) => {
     try {
         await AlertService.processAlert(event, null);  
+    } catch (error) {
+        console.error("Failed to process local event:", error);
+    }
+});
+LocalMegaphone.on('DEVICE_BATTERY_LOW', async (event) => {
+    try {
+        await AlertService.processAlert(event, "BATTERY_LOW");  
     } catch (error) {
         console.error("Failed to process local event:", error);
     }

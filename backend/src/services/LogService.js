@@ -28,7 +28,9 @@ const formatLogDates = (log, timezone) => {
 /** ~1 m — duplicate ping detection only (GPS jitter); geofence checks use full precision elsewhere. */
 const COORD_EPS_DUP = 1e-5;
 /** Skip redundant pings: same coordinates & log time within 10s after device's last update (Traccar heartbeat / interval rules). */
-const DUPLICATE_AFTER_LAST_MS = 10_000;
+const DUPLICATE_AFTER_LAST_MS = 30_000;
+const MIN_BATTERY_LEVEL = 10.0;
+const MAX_DIFF_MS = 2 * 60 * 1000;
 
 const LogService = {
     processLog: async (data) => { 
@@ -59,17 +61,33 @@ const LogService = {
         // Newer log updates device; strictly older log timestamp does not (replay / backlog).
         const isOlder = lastUpMs != null && logTs < lastUpMs;
 
-        LocalMegaphone.emit('DEVICE_UPDATES', {
-            device_id: data.device_id,
-            child_name: device.child_name,
-            timezone: device.timezone,
-            latitude: data.latitude,
-            longitude: data.longitude,
-            battery: data.battery_level,
-            timestamp: data.timestamp,
-            activity_type: data.activity_type,
-            isOlder: isOlder
-        });
+        if (!isOlder){
+            LocalMegaphone.emit('DEVICE_UPDATES', {
+                device_id: data.device_id,
+                child_name: device.child_name,
+                timezone: device.timezone,
+                latitude: data.latitude,
+                longitude: data.longitude,
+                battery: data.battery_level,
+                timestamp: data.timestamp,
+                activity_type: data.activity_type,
+                isOlder: isOlder
+            });
+        }
+
+        //Check for battery status
+        if (!isOlder && data.battery_level <= MIN_BATTERY_LEVEL){
+            LocalMegaphone.emit('DEVICE_BATTERY_LOW', {
+                device_id: data.device_id,
+                child_name: device.child_name,
+                timezone: device.timezone,
+                latitude: data.latitude,
+                longitude: data.longitude,
+                battery: data.battery_level,
+                timestamp: data.timestamp,
+                activity_type: data.activity_type,
+            });
+        }
 
         const zonecheck = await BoundaryService.check(
             {
@@ -88,15 +106,16 @@ const LogService = {
 
         //Create log and update device
         //Device dc update lat_lon, update_at, device_status, boundary_status
+        const zone_id = zonecheck?.zone_id ?? null;
+        const zone_name = zonecheck?.zone_name ?? null;
+        const boundary_status = zonecheck?.boundary_status ?? null;
         if (!isOlder){
             let device_status;
             // Recover from NOSIGNAL using log timeline only (any newer ping restores ACTIVE).
             if (device.status === "NOSIGNAL") {
                 device_status = "ACTIVE";
             }
-            const zone_id = zonecheck?.zone_id ?? null;
-            const zone_name = zonecheck?.zone_name ?? null;
-            const boundary_status = zonecheck?.boundary_status ?? null;
+            
             const [createdLogId, updateResult] = await Promise.all([
                 LogModel.create(data, zone_id, zone_name, boundary_status),
                 
@@ -106,18 +125,47 @@ const LogService = {
                 throw new Error("Log create and update failed"); 
             }
         } else {
-            const createdLogId = await LogModel.create(data);
+            const createdLogId = await LogModel.create(data, zone_id, zone_name, boundary_status);
             if (!createdLogId) {
                 throw new Error("Log create failed"); 
             }
         }
 
         // Geofence alerts: only on INSIDE ↔ OUTSIDE transition vs previous stored log (by log timestamp).
-        if (zonecheck && !isOlder) {
+        //OLD LOGIC IS NOT GOOD!!! So i added a zone check, and time check
+        //WHAT IF the last log is OUTSIDE but different zone
+        //WHAT IF the last log is OUTSIDE but it is yesterday?? 2 days ago?? bla bla
+        //old log come still create alert, but dont send through WS only
+        if (zonecheck) {
             const prevLog = await LogModel.getLatestbyTimeStamp(data.device_id, data.timestamp);
-            const prevInside = prevLog?.boundary_status === "INSIDE";
+
+            //Missing
+            const isNoPrev = !prevLog;
+            const isMissingState =  prevLog && (prevLog.boundary_status == null || prevLog.zone_id == null);
+
+            //Too old log so not reliable
+            const prevTime = prevLog?.timestamp ? Date.parse(prevLog.timestamp) : null;
+            const diff = prevTime ? (logTs - prevTime) : null;
+            const isTooOld = prevTime != null && diff > MAX_DIFF_MS;
+
+            //Do toggle?
+            const prevInside = prevLog?.boundary_status === "INSIDE"; //boundary_status could be null
             const currInside = zonecheck.boundary_status === "INSIDE";
-            if (prevInside !== currInside) {
+            const isBoundaryChanged = prevLog && (prevInside !== currInside);
+            
+            //Zone change?
+            const prevZone = prevLog?.zone_id; //zone_id could be null
+            const currZone = zonecheck.zone_id;
+            const isZoneChanged = prevLog && (prevZone !== currZone);
+
+
+            if (
+                isNoPrev ||
+                isMissingState ||
+                isTooOld ||
+                isBoundaryChanged ||
+                isZoneChanged
+            ) {
                 LocalMegaphone.emit("DEVICE_ALERT", {
                     user_id: device.user_id,
                     device_id: data.device_id,
@@ -130,7 +178,7 @@ const LogService = {
                     battery: data.battery_level,
                     timestamp: data.timestamp,
                     activity_type: data.activity_type,
-                    isOlder: false,
+                    isOlder: isOlder,
                     boundary_status: zonecheck.boundary_status,
                 });
             }
@@ -160,44 +208,46 @@ const LogService = {
         return latestLog;
     },
 
-    getLogsbyDevice: async (device_id, user_id, options = {}) => {
-        const { limit = 20, cursor } = options;
+    getLogsByDevice: async (device_id, user_id, options = {}) => {
+        const { from, to, limit = 100, cursor } = options;
 
         if (!validateUUID(device_id)) {
             throw new Error("Invalid UUID");
         }
 
-        const safeLimit = Math.min(limit, 50);
-
         const device = await DeviceModel.findbyID(device_id);
         if (!device) {
             throw new Error("Device not found");
         }
+
         if (device.user_id !== user_id) {
-            throw new Error("Not authorized to view this device");
+            throw new Error("Not authorized");
         }
+
+        // 🔒 safety limit
+        const safeLimit = Math.min(limit, 200);
+
+        const fromDate = from ? new Date(from) : null;
+        const toDate = to ? new Date(to) : null;
+        const cursorDate = cursor ? new Date(cursor) : null;
 
         const logs = await LogModel.getLogsByDevice(
             device_id,
+            fromDate,
+            toDate,
             safeLimit,
-            cursor ? new Date(cursor) : null
+            cursorDate
         );
 
         const nextCursor =
-            logs.length > 0
+            logs.length === safeLimit
                 ? logs[logs.length - 1].timestamp.toISOString()
                 : null;
 
-        const formattedLogs = logs.map(log =>
-            formatLogDates(log, device.timezone)
-        );
-
-        
-
         return {
-            logs: formattedLogs,
-            nextCursor,
-        };
+            logs,
+            nextCursor
+            };
     }
       
 };

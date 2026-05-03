@@ -45,37 +45,34 @@ const LogController = {
             return res.status(500).json({error: err.message }); 
         } 
     },
-    getLogsbyDevice: async (req, res) => { 
+    getLogsByDevice: async (req, res, next) => {
         try {
-            const userId = req.user.user_id;
-            const device_id = req.params.device_id;
+            const { device_id } = req.params;
+            const user_id = req.user.user_id;
 
-            if (!device_id) {
-                return res.status(400).json({ message: "Device ID is required" });
-            }
+            const {
+                from,
+                to,
+                limit = 100,
+                cursor
+            } = req.query;
 
-            const { limit, cursor } = req.query;
-
-            const result = await LogService.getLogsbyDevice(
+            const result = await LogService.getLogsByDevice(
                 device_id,
-                userId,
+                user_id,
                 {
-                    limit: parseInt(limit) || 20,
+                    from,
+                    to,
+                    limit: Number(limit),
                     cursor
                 }
             );
 
-            return res.status(200).json({ 
-                success: true,
-                data: result.logs,
-                nextCursor: result.nextCursor
-            });
-            
+            res.json(result);
         } catch (err) {
-            console.error("Error fetching logs:", err);
-            return res.status(500).json({ error: err.message }); 
-        } 
-    },
+        next(err);
+        }
+    }
 };
 
 module.exports = LogController;
