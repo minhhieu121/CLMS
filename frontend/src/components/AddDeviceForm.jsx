@@ -105,19 +105,7 @@ export default function AddDeviceForm({ onSuccess }) {
           />
         </div>
 
-        <div className="field">
-          <label htmlFor="deviceId">Device UUID (optional)</label>
-          <input
-            type="text"
-            id="deviceId"
-            name="deviceId"
-            className="font-mono text-sm"
-            placeholder="Leave empty to auto-generate"
-            value={formData.deviceId}
-            onChange={handleChange}
-            disabled={status.loading}
-          />
-        </div>
+
 
         <div className="field">
           <label htmlFor="timezone">Timezone</label>
