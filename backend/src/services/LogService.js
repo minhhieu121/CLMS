@@ -30,7 +30,7 @@ const COORD_EPS_DUP = 1e-5;
 /** Skip redundant pings: same coordinates & log time within 10s after device's last update (Traccar heartbeat / interval rules). */
 const DUPLICATE_AFTER_LAST_MS = 30_000;
 const MIN_BATTERY_LEVEL = 10.0;
-const MAX_DIFF_MS = 2 * 60 * 1000;
+const MAX_DIFF_MS = 30 * 60 * 1000;
 
 const LogService = {
     processLog: async (data) => { 
@@ -146,7 +146,7 @@ const LogService = {
             //Too old log so not reliable
             const prevTime = prevLog?.timestamp ? Date.parse(prevLog.timestamp) : null;
             const diff = prevTime ? (logTs - prevTime) : null;
-            const isTooOld = prevTime != null && diff > MAX_DIFF_MS;
+            const isTooOld = prevTime != null && diff > MAX_DIFF_MS ;
 
             //Do toggle?
             const prevInside = prevLog?.boundary_status === "INSIDE"; //boundary_status could be null
@@ -158,14 +158,24 @@ const LogService = {
             const currZone = zonecheck.zone_id;
             const isZoneChanged = prevLog && (prevZone !== currZone);
 
+            let shouldEmit = false;
+            if (isNoPrev) {
+                shouldEmit = true;
+            } else if (isMissingState) {
+                shouldEmit = true;
+            } 
+            else if (isZoneChanged) {
+                shouldEmit = true;
+            } else if (isBoundaryChanged) {
+                shouldEmit = true;
+            } else if (isTooOld) {
+                // Only special rule
+                if (!(prevInside && currInside)) {
+                    shouldEmit = true;
+                }
+            }
 
-            if (
-                isNoPrev ||
-                isMissingState ||
-                isTooOld ||
-                isBoundaryChanged ||
-                isZoneChanged
-            ) {
+            if (shouldEmit) {
                 LocalMegaphone.emit("DEVICE_ALERT", {
                     user_id: device.user_id,
                     device_id: data.device_id,
